@@ -539,7 +539,7 @@ TEST_F(MetaFunc, ExternalMemberFunction) {
     ASSERT_EQ(func.arity(), 2u);
     ASSERT_FALSE(func.is_const());
     ASSERT_TRUE(func.is_static());
-    ASSERT_EQ(func.ret(), entt::resolve<void>());
+    ASSERT_EQ(func.ret(), entt::resolve<func_t&>());
     ASSERT_EQ(func.arg(0u), entt::resolve<entt::registry>());
     ASSERT_EQ(func.arg(1u), entt::resolve<entt::entity>());
     ASSERT_FALSE(func.arg(2u));

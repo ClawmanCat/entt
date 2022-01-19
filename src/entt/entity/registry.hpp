@@ -761,11 +761,6 @@ public:
      * void(Component &);
      * @endcode
      *
-     * @note
-     * Empty types aren't explicitly instantiated and therefore they are never
-     * returned. However, this function can be used to trigger an update signal
-     * for them.
-     *
      * @warning
      * Attempting to use an invalid entity or to patch a component of an entity
      * that doesn't own it results in undefined behavior.

@@ -26,11 +26,31 @@ struct component_traits: basic_component_traits {
 };
 
 /**
- * @brief Helper variable template.
+ * @brief Checks if a given component type is eligible for ETO.
  * @tparam Type Type of component.
  */
-template<class Type>
-inline constexpr bool ignore_as_empty_v = component_traits<Type>::ignore_if_empty &&std::is_empty_v<Type>;
+template<typename Type>
+inline constexpr bool apply_eto_v =
+    component_traits<Type>::ignore_if_empty &&
+    std::is_empty_v<Type> &&
+    std::is_standard_layout_v<Type> &&
+    std::is_trivially_destructible_v<Type> &&
+    std::is_trivially_move_constructible_v<Type> &&
+    std::is_trivially_move_assignable_v<Type>;
+
+/**
+ * @brief Checks if a given component is empty and thus need not be stored in snapshots.
+ *
+ * This differs from apply_eto_v in that ETO does not apply to components that have side
+ * effects on moving / destructing them, and that ETO components must be standard layout
+ * types to perform the type punning trick.
+ *
+ * @tparam Type Type of component.
+ */
+template <typename Type>
+inline constexpr bool elude_serialization_v =
+    component_traits<Type>::ignore_if_empty &&
+    std::is_empty_v<Type>;
 
 } // namespace entt
 

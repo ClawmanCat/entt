@@ -272,6 +272,7 @@ TEST(Snapshot, Continuous) {
     using storage_type = std::tuple<
         std::queue<typename traits_type::entity_type>,
         std::queue<entt::entity>,
+        std::queue<a_component>,
         std::queue<another_component>,
         std::queue<what_a_component>,
         std::queue<map_component>,

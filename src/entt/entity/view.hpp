@@ -762,7 +762,7 @@ public:
      * object to them.
      *
      * The function object is invoked for each entity. It is provided with the
-     * entity itself and a reference to the component if it's a non-empty one.
+     * entity itself and a reference to the component.
      * The _constness_ of the component is as requested.<br/>
      * The signature of the function must be equivalent to one of the following
      * forms:
@@ -777,25 +777,13 @@ public:
      */
     template<typename Func>
     void each(Func func) const {
-        if constexpr(ignore_as_empty_v<std::remove_const_t<Component>>) {
-            if constexpr(std::is_invocable_v<Func>) {
-                for(size_type pos{}, last = size(); pos < last; ++pos) {
-                    func();
-                }
-            } else {
-                for(auto entity: *view) {
-                    func(entity);
-                }
+        if constexpr(is_applicable_v<Func, decltype(*each().begin())>) {
+            for(const auto pack: each()) {
+                std::apply(func, pack);
             }
         } else {
-            if constexpr(is_applicable_v<Func, decltype(*each().begin())>) {
-                for(const auto pack: each()) {
-                    std::apply(func, pack);
-                }
-            } else {
-                for(auto &&component: *std::get<0>(pools)) {
-                    func(component);
-                }
+            for(auto &&component: *std::get<0>(pools)) {
+                func(component);
             }
         }
     }

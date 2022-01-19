@@ -1754,7 +1754,7 @@ TEST(Registry, Constness) {
     entt::registry registry;
 
     static_assert((std::is_same_v<decltype(registry.emplace<int>({})), int &>));
-    static_assert((std::is_same_v<decltype(registry.emplace<empty_type>({})), void>));
+    static_assert((std::is_same_v<decltype(registry.emplace<empty_type>({})), empty_type&>));
 
     static_assert((std::is_same_v<decltype(registry.get<int>({})), int &>));
     static_assert((std::is_same_v<decltype(registry.get<int, const char>({})), std::tuple<int &, const char &>>));

@@ -1178,9 +1178,8 @@ TEST(Storage, IterableIteratorConversion) {
 TEST(Storage, EmptyTypeIterable) {
     using iterator = typename entt::storage<empty_stable_type>::iterable::iterator;
 
-    static_assert(std::is_same_v<iterator::value_type, std::tuple<entt::entity>>);
-    static_assert(std::is_same_v<iterator::value_type, std::tuple<entt::entity>>);
-    static_assert(std::is_same_v<typename iterator::pointer, entt::input_iterator_pointer<std::tuple<entt::entity>>>);
+    static_assert(std::is_same_v<iterator::value_type, std::tuple<entt::entity, empty_stable_type&>>);
+    static_assert(std::is_same_v<typename iterator::pointer, entt::input_iterator_pointer<std::tuple<entt::entity, empty_stable_type&>>>);
     static_assert(std::is_same_v<typename iterator::reference, typename iterator::value_type>);
 
     entt::storage<empty_stable_type> pool;
@@ -1203,8 +1202,9 @@ TEST(Storage, EmptyTypeIterable) {
     ASSERT_EQ(begin++, iterable.begin());
     ASSERT_EQ(++begin, iterable.end());
 
-    for(auto [entity]: iterable) {
+    for(auto [entity, component]: iterable) {
         static_assert(std::is_same_v<decltype(entity), entt::entity>);
+        static_assert(std::is_same_v<decltype(component), empty_stable_type&>);
         ASSERT_TRUE(entity == entt::entity{1} || entity == entt::entity{3});
     }
 }

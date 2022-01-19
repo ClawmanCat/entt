@@ -168,7 +168,7 @@ class basic_snapshot_loader {
 
         entity_type entt{};
 
-        if constexpr(ignore_as_empty_v<std::remove_const_t<Type>>) {
+        if constexpr(elude_serialization_v<std::remove_const_t<Type>>) {
             while(length--) {
                 archive(entt);
                 const auto entity = reg->valid(entt) ? entt : reg->create(entt);
@@ -384,7 +384,7 @@ class basic_continuous_loader {
 
         entity_type entt{};
 
-        if constexpr(ignore_as_empty_v<std::remove_const_t<Other>>) {
+        if constexpr(elude_serialization_v<std::remove_const_t<Other>>) {
             while(length--) {
                 archive(entt);
                 restore(entt);

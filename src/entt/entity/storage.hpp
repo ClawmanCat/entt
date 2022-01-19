@@ -19,6 +19,7 @@
 #include "../signal/sigh.hpp"
 #include "component.hpp"
 #include "entity.hpp"
+#include "utility.hpp"
 #include "fwd.hpp"
 #include "sparse_set.hpp"
 
@@ -153,6 +154,109 @@ template<typename CLhs, typename CRhs>
 
 template<typename CLhs, typename CRhs>
 [[nodiscard]] bool operator>=(const storage_iterator<CLhs> &lhs, const storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
+    return !(lhs < rhs);
+}
+
+template <typename Type>
+class fake_storage_iterator {
+public:
+    using difference_type = std::ptrdiff_t;
+    using value_type = Type;
+    using pointer = std::add_pointer_t<Type>;
+    using reference = std::add_lvalue_reference_t<Type>;
+    using iterator_category = std::random_access_iterator_tag;
+
+    fake_storage_iterator() ENTT_NOEXCEPT = default;
+
+    fake_storage_iterator(difference_type offset) ENTT_NOEXCEPT : offset(offset) {}
+
+    fake_storage_iterator& operator++(void) ENTT_NOEXCEPT {
+        return ++offset, *this;
+    }
+
+    fake_storage_iterator operator++(int) ENTT_NOEXCEPT {
+        fake_storage_iterator orig = *this;
+        return ++offset, orig;
+    }
+
+    fake_storage_iterator& operator--(void) ENTT_NOEXCEPT {
+        return --offset, *this;
+    }
+
+    fake_storage_iterator operator--(int) ENTT_NOEXCEPT {
+        fake_storage_iterator orig = *this;
+        return --offset, orig;
+    }
+
+    fake_storage_iterator& operator+=(const difference_type value) ENTT_NOEXCEPT {
+        return offset += value, *this;
+    }
+
+    fake_storage_iterator operator+(const difference_type value) ENTT_NOEXCEPT {
+        fake_storage_iterator orig = *this;
+        return offset += value, orig;
+    }
+
+    fake_storage_iterator& operator-=(const difference_type value) ENTT_NOEXCEPT {
+        return offset -= value, *this;
+    }
+
+    fake_storage_iterator operator-(const difference_type value) ENTT_NOEXCEPT {
+        fake_storage_iterator orig = *this;
+        return offset -= value, orig;
+    }
+
+    [[nodiscard]] reference operator[](const difference_type value) const ENTT_NOEXCEPT {
+        return fake_storage_for<value_type>();
+    }
+
+    [[nodiscard]] pointer operator->(void) const ENTT_NOEXCEPT {
+        return &fake_storage_for<value_type>();
+    }
+
+    [[nodiscard]] reference operator*(void) const ENTT_NOEXCEPT {
+        return fake_storage_for<value_type>();
+    }
+    
+    [[nodiscard]] difference_type index(void) const ENTT_NOEXCEPT {
+        return offset;
+    }
+private:
+    difference_type offset = 0;
+};
+
+template<typename CLhs, typename CRhs>
+[[nodiscard]] auto operator-(const fake_storage_iterator<CLhs> &lhs, const fake_storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
+    return rhs.index() - lhs.index();
+}
+
+template<typename CLhs, typename CRhs>
+[[nodiscard]] bool operator==(const fake_storage_iterator<CLhs> &lhs, const fake_storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
+    return lhs.index() == rhs.index();
+}
+
+template<typename CLhs, typename CRhs>
+[[nodiscard]] bool operator!=(const fake_storage_iterator<CLhs> &lhs, const fake_storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
+    return !(lhs == rhs);
+}
+
+template<typename CLhs, typename CRhs>
+[[nodiscard]] bool operator<(const fake_storage_iterator<CLhs> &lhs, const fake_storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
+    return lhs.index() > rhs.index();
+}
+
+template<typename CLhs, typename CRhs>
+[[nodiscard]] bool operator>(const fake_storage_iterator<CLhs> &lhs, const fake_storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
+    return lhs.index() < rhs.index();
+}
+
+template<typename CLhs, typename CRhs>
+[[nodiscard]] bool operator<=(const fake_storage_iterator<CLhs> &lhs, const fake_storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
+    return !(lhs > rhs);
+}
+
+template<typename CLhs, typename CRhs>
+[[nodiscard]] bool operator>=(const fake_storage_iterator<CLhs> &lhs, const fake_storage_iterator<CRhs> &rhs) ENTT_NOEXCEPT {
     return !(lhs < rhs);
 }
 
@@ -761,10 +865,11 @@ private:
 
 /*! @copydoc basic_storage */
 template<typename Entity, typename Type, typename Allocator>
-class basic_storage<Entity, Type, Allocator, std::enable_if_t<ignore_as_empty_v<Type>>>
+class basic_storage<Entity, Type, Allocator, std::enable_if_t<apply_eto_v<Type>>>
     : public basic_sparse_set<Entity, typename std::allocator_traits<Allocator>::template rebind_alloc<Entity>> {
     using allocator_traits = std::allocator_traits<Allocator>;
     using comp_traits = component_traits<Type>;
+
 
 public:
     /*! @brief Base type. */
@@ -777,10 +882,22 @@ public:
     using entity_type = Entity;
     /*! @brief Unsigned integer type. */
     using size_type = std::size_t;
+    /*! @brief Pointer type to contained elements. */
+    using pointer = std::add_pointer_t<value_type>;
+    /*! @brief Constant pointer type to contained elements. */
+    using const_pointer = std::add_pointer_t<std::add_const_t<value_type>>;
+    /*! @brief Random access iterator type. */
+    using iterator = internal::fake_storage_iterator<value_type>;
+    /*! @brief Constant random access iterator type. */
+    using const_iterator = internal::fake_storage_iterator<std::add_const_t<value_type>>;
+    /*! @brief Reverse iterator type. */
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    /*! @brief Constant reverse iterator type. */
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
     /*! @brief Extended iterable storage proxy. */
-    using iterable = iterable_adaptor<internal::extended_storage_iterator<typename base_type::iterator>>;
+    using iterable = iterable_adaptor<internal::extended_storage_iterator<typename base_type::iterator, iterator>>;
     /*! @brief Constant extended iterable storage proxy. */
-    using const_iterable = iterable_adaptor<internal::extended_storage_iterator<typename base_type::const_iterator>>;
+    using const_iterable = iterable_adaptor<internal::extended_storage_iterator<typename base_type::const_iterator, const_iterator>>;
 
     /*! @brief Default constructor. */
     basic_storage()
@@ -823,31 +940,161 @@ public:
     }
 
     /**
-     * @brief Returns the object assigned to an entity, that is `void`.
+     * @brief Returns an iterator to the beginning.
      *
-     * @warning
-     * Attempting to use an entity that doesn't belong to the storage results in
-     * undefined behavior.
+     * This iterator can be dereferenced to to retrieve a reference to a fake storage object.
      *
-     * @param entt A valid identifier.
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
+     * @return An iterator that can be dereferenced to retrieve a reference to a fake storage object.
      */
-    void get([[maybe_unused]] const entity_type entt) const ENTT_NOEXCEPT {
-        ENTT_ASSERT(base_type::contains(entt), "Storage does not contain entity");
+    [[nodiscard]] const_iterator cbegin() const ENTT_NOEXCEPT {
+        return const_iterator { 0 };
+    }
+
+    /*! @copydoc cbegin */
+    [[nodiscard]] const_iterator begin() const ENTT_NOEXCEPT {
+        return cbegin();
+    }
+
+    /*! @copydoc begin */
+    [[nodiscard]] iterator begin() ENTT_NOEXCEPT {
+        return iterator { 0 };
     }
 
     /**
-     * @brief Returns an empty tuple.
+     * @brief Returns an iterator to the end.
+     *
+     * When the begin iterator is incremented an amount of times equal to the amount
+     * of entities stored in this storage, it will compare equal to the iterator
+     * returned by this method.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
+     * @return An iterator representing the element past the hypothetical end of storage.
+     */
+    [[nodiscard]] const_iterator cend() const ENTT_NOEXCEPT {
+        return const_iterator { static_cast<typename iterator::difference_type>(base_type::size()) };
+    }
+
+    /*! @copydoc cend */
+    [[nodiscard]] const_iterator end() const ENTT_NOEXCEPT {
+        return cend();
+    }
+
+    /*! @copydoc end */
+    [[nodiscard]] iterator end() ENTT_NOEXCEPT {
+        return iterator { static_cast<typename iterator::difference_type>(base_type::size()) };
+    }
+
+    /**
+     * @brief Returns a reverse iterator to the beginning.
+     *
+     * This iterator can be dereferenced to to retrieve a reference to a fake storage object.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
+     * @return An iterator that can be dereferenced to retrieve a reference to a fake storage object.
+     */
+    [[nodiscard]] const_reverse_iterator crbegin() const ENTT_NOEXCEPT {
+        return const_reverse_iterator { 0 };
+    }
+
+    /*! @copydoc crbegin */
+    [[nodiscard]] const_reverse_iterator rbegin() const ENTT_NOEXCEPT {
+        return crbegin();
+    }
+
+    /*! @copydoc rbegin */
+    [[nodiscard]] reverse_iterator rbegin() ENTT_NOEXCEPT {
+        return iterator { 0 };
+    }
+
+    /**
+     * @brief Returns a reverse iterator to the end.
+     *
+     * When the reverse begin iterator is incremented an amount of times equal to the amount
+     * of entities stored in this storage, it will compare equal to the iterator
+     * returned by this method.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
+     * @return A reverse iterator representing the element past the hypothetical end of storage.
+     */
+    [[nodiscard]] const_reverse_iterator crend() const ENTT_NOEXCEPT {
+        return const_reverse_iterator { base_type::size() };
+    }
+
+    /*! @copydoc crend */
+    [[nodiscard]] const_reverse_iterator rend() const ENTT_NOEXCEPT {
+        return crend();
+    }
+
+    /*! @copydoc rend */
+    [[nodiscard]] reverse_iterator rend() ENTT_NOEXCEPT {
+        return iterator { base_type::size() };
+    }
+
+    /**
+     * @brief Returns the object assigned to an entity.
      *
      * @warning
      * Attempting to use an entity that doesn't belong to the storage results in
      * undefined behavior.
      *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
      * @param entt A valid identifier.
-     * @return Returns an empty tuple.
+     * @return The object assigned to the entity.
      */
-    [[nodiscard]] std::tuple<> get_as_tuple([[maybe_unused]] const entity_type entt) const ENTT_NOEXCEPT {
+    const value_type& get([[maybe_unused]] const entity_type entt) const ENTT_NOEXCEPT {
         ENTT_ASSERT(base_type::contains(entt), "Storage does not contain entity");
-        return std::tuple{};
+        return fake_storage_for<value_type>();
+    }
+
+    /*! @copydoc get */
+    value_type& get([[maybe_unused]] const entity_type entt) ENTT_NOEXCEPT {
+        ENTT_ASSERT(base_type::contains(entt), "Storage does not contain entity");
+        return fake_storage_for<value_type>();
+    }
+
+    /**
+     * @brief Returns the object assigned to an entity as a tuple.
+     *
+     * @warning
+     * Attempting to use an entity that doesn't belong to the storage results in
+     * undefined behavior.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
+     * @param entt A valid identifier.
+     * @return The object assigned to the entity as a tuple.
+     */
+    [[nodiscard]] std::tuple<const value_type&> get_as_tuple([[maybe_unused]] const entity_type entt) const ENTT_NOEXCEPT {
+        return std::forward_as_tuple(get(entt));
+    }
+
+    /*! @copydoc get_as_tuple */
+    [[nodiscard]] std::tuple<value_type&> get_as_tuple(const entity_type entt) ENTT_NOEXCEPT {
+        return std::forward_as_tuple(get(entt));
     }
 
     /**
@@ -857,37 +1104,93 @@ public:
      * Attempting to use an entity that already belongs to the storage results
      * in undefined behavior.
      *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
      * @tparam Args Types of arguments to use to construct the object.
      * @param entt A valid identifier.
      * @param args Parameters to use to construct an object for the entity.
+     * @return A reference to the newly created object.
      */
     template<typename... Args>
-    void emplace(const entity_type entt, Args &&...args) {
+    value_type& emplace(const entity_type entt, Args &&...args) {
         [[maybe_unused]] const value_type elem{std::forward<Args>(args)...};
         base_type::try_emplace(entt);
+
+        return fake_storage_for<value_type>();
     }
 
     /**
-    * @brief Updates the instance assigned to a given entity in-place.
-    * @tparam Func Types of the function objects to invoke.
-    * @param entt A valid identifier.
-    * @param func Valid function objects.
-    */
+     * @brief Updates the instance assigned to a given entity in-place.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
+     * @tparam Func Types of the function objects to invoke.
+     * @param entt A valid identifier.
+     * @param func Valid function objects.
+     * @return A reference to the updated instance.
+     */
     template<typename... Func>
-    void patch([[maybe_unused]] const entity_type entt, Func &&...func) {
+    value_type& patch([[maybe_unused]] const entity_type entt, Func &&...func) {
         ENTT_ASSERT(base_type::contains(entt), "Storage does not contain entity");
-        (std::forward<Func>(func)(), ...);
+        (std::forward<Func>(func)(fake_storage_for<value_type>()), ...);
+
+        return fake_storage_for<value_type>();
     }
 
     /**
-     * @brief Assigns entities to a storage.
+     * @brief Assigns one or more entities to a storage and constructs their
+     * objects from a given instance.
+     *
+     * @warning
+     * Attempting to assign an entity that already belongs to the storage
+     * results in undefined behavior.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
      * @tparam It Type of input iterator.
-     * @tparam Args Types of optional arguments.
      * @param first An iterator to the first element of the range of entities.
      * @param last An iterator past the last element of the range of entities.
+     * @param value An instance of the object to construct.
      */
     template<typename It, typename... Args>
-    void insert(It first, It last, Args &&...) {
+    void insert(It first, It last, [[maybe_unused]] const value_type& value = {}) {
+        for(const auto sz = base_type::size(); first != last && base_type::slot() != sz; ++first) {
+            emplace(*first);
+        }
+
+        base_type::reserve(base_type::size() + std::distance(first, last));
+
+        for(; first != last; ++first) {
+            emplace(*first);
+        }
+    }
+
+    /**
+     * @brief Assigns one or more entities to a storage and constructs their
+     * objects from a given range.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
+     *
+     * @tparam EIt Type of input iterator.
+     * @tparam CIt Type of input iterator.
+     * @param first An iterator to the first element of the range of entities.
+     * @param last An iterator past the last element of the range of entities.
+     * @param from An iterator to the first element of the range of objects.
+     */
+    template<typename EIt, typename CIt, typename = std::enable_if_t<std::is_same_v<std::decay_t<typename std::iterator_traits<CIt>::value_type>, value_type>>>
+    void insert(EIt first, EIt last, [[maybe_unused]] CIt from) {
         for(const auto sz = base_type::size(); first != last && base_type::slot() != sz; ++first) {
             emplace(*first);
         }
@@ -902,17 +1205,23 @@ public:
     /**
      * @brief Returns an iterable object to use to _visit_ a storage.
      *
-     * The iterable object returns a tuple that contains the current entity.
+     * The iterable object returns a tuple that contains the current entity and
+     * a reference to its component.
+     *
+     * @note
+     * This version of the basic_storage class uses empty type optimization.
+     * That is, instead of storing an instance of the component in the storage,
+     * a fake instance is returned through type punning another empty type.
      *
      * @return An iterable object to use to _visit_ the storage.
      */
     [[nodiscard]] iterable each() ENTT_NOEXCEPT {
-        return {internal::extended_storage_iterator{base_type::begin()}, internal::extended_storage_iterator{base_type::end()}};
+        return {internal::extended_storage_iterator{base_type::begin(), begin()}, internal::extended_storage_iterator{base_type::end(), end()}};
     }
 
     /*! @copydoc each */
     [[nodiscard]] const_iterable each() const ENTT_NOEXCEPT {
-        return {internal::extended_storage_iterator{base_type::cbegin()}, internal::extended_storage_iterator{base_type::cend()}};
+        return {internal::extended_storage_iterator{base_type::cbegin(), cbegin()}, internal::extended_storage_iterator{base_type::cend(), cend()}};
     }
 };
 
