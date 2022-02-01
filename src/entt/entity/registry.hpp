@@ -266,6 +266,7 @@ class basic_registry {
     auto release_entity(const Entity entity, const typename entity_traits::version_type version) {
         const typename entity_traits::version_type vers = version + (version == entity_traits::to_version(tombstone));
         entities[entity_traits::to_entity(entity)] = entity_traits::construct(entity_traits::to_integral(free_list), vers);
+        if (entity_set.contains(entity)) entity_set.erase(entity);
         free_list = entity_traits::combine(entity_traits::to_integral(entity), tombstone);
         return vers;
     }
@@ -280,6 +281,14 @@ public:
     /*! @brief Common type among all storage types. */
     using base_type = basic_common_type;
 
+    /*! @brief Type of the view that views the given components for this registry. */
+    template <typename Exclude, typename... Component>
+    using view_type = std::conditional_t<
+        sizeof...(Component) == 0,
+        basic_view<entity_type, get_t<>, get_t<basic_sparse_set<entity_type>>, Exclude>,
+        basic_view<entity_type, get_t<Component...>, get_t<>, Exclude>
+    >;
+
     /*! @brief Default constructor. */
     basic_registry() = default;
 
@@ -292,6 +301,7 @@ public:
           vars{std::move(other.vars)},
           groups{std::move(other.groups)},
           entities{std::move(other.entities)},
+          entity_set{std::move(other.entity_set)},
           free_list{other.free_list} {
         for(auto &&curr: pools) {
             curr.second->bind(forward_as_any(*this));
@@ -308,6 +318,7 @@ public:
         vars = std::move(other.vars);
         groups = std::move(other.groups);
         entities = std::move(other.entities);
+        entity_set = std::move(other.entity_set);
         free_list = other.free_list;
 
         for(auto &&curr: pools) {
@@ -389,6 +400,15 @@ public:
     }
 
     /**
+     * @brief Returns whether or not the registry contains the given entity.
+     * @param entt The entity to check.
+     * @return Whether or not the given entity is contained within this registry.
+     */
+    [[nodiscard]] bool contains(const entity_type entt) const ENTT_NOEXCEPT {
+        return entity_set.contains(entt);
+    }
+
+    /**
      * @brief Returns the number of entities still in use.
      * @return Number of entities still in use.
      */
@@ -408,6 +428,7 @@ public:
      */
     void reserve(const size_type cap) {
         entities.reserve(cap);
+        entity_set.reserve(cap);
     }
 
     /**
@@ -481,7 +502,10 @@ public:
      * @return A valid identifier.
      */
     [[nodiscard]] entity_type create() {
-        return (free_list == null) ? entities.emplace_back(generate_identifier(entities.size())) : recycle_identifier();
+        auto entity = (free_list == null) ? entities.emplace_back(generate_identifier(entities.size())) : recycle_identifier();
+        if (!entity_set.contains(entity)) entity_set.emplace(entity);
+
+        return entity;
     }
 
     /**
@@ -494,6 +518,7 @@ public:
      * @return A valid identifier.
      */
     [[nodiscard]] entity_type create(const entity_type hint) {
+        entity_type result;
         const auto length = entities.size();
 
         if(hint == null || hint == tombstone) {
@@ -505,15 +530,18 @@ public:
                 release_entity(generate_identifier(pos), {});
             }
 
-            return (entities[req] = hint);
+            result = (entities[req] = hint);
         } else if(const auto curr = entity_traits::to_entity(entities[req]); req == curr) {
             return create();
         } else {
             auto *it = &free_list;
             for(; entity_traits::to_entity(*it) != req; it = &entities[entity_traits::to_entity(*it)]) {}
             *it = entity_traits::combine(curr, entity_traits::to_integral(*it));
-            return (entities[req] = hint);
+            result = (entities[req] = hint);
         }
+
+        entity_set.emplace(result);
+        return result;
     }
 
     /**
@@ -536,6 +564,7 @@ public:
 
         for(auto pos = length; first != last; ++first, ++pos) {
             *first = entities[pos] = generate_identifier(pos);
+            entity_set.emplace(*first);
         }
     }
 
@@ -560,6 +589,8 @@ public:
     void assign(It first, It last, const entity_type destroyed) {
         ENTT_ASSERT(!alive(), "Entities still alive");
         entities.assign(first, last);
+        entity_set.clear();
+        entity_set.insert(first, last);
         free_list = destroyed;
     }
 
@@ -1145,15 +1176,23 @@ public:
      * @tparam Exclude Types of components used to filter the view.
      * @return A newly created view.
      */
-    template<typename Component, typename... Other, typename... Exclude>
-    [[nodiscard]] basic_view<entity_type, get_t<std::add_const_t<Component>, std::add_const_t<Other>...>, exclude_t<Exclude...>> view(exclude_t<Exclude...> = {}) const {
-        return {assure<std::remove_const_t<Component>>(), assure<std::remove_const_t<Other>>()..., assure<Exclude>()...};
+    template<typename... Components, typename... Exclude>
+    [[nodiscard]] auto view(exclude_t<Exclude...> = {}) const {
+        if constexpr (sizeof...(Components) == 0) {
+            return view_type<exclude_t<Exclude...>, std::add_const_t<Components>...> { entity_set, assure<Exclude>()... };
+        } else {
+            return view_type<exclude_t<Exclude...>, std::add_const_t<Components>...> { assure<std::remove_const_t<Components>>()..., assure<Exclude>()... };
+        }
     }
 
     /*! @copydoc view */
-    template<typename Component, typename... Other, typename... Exclude>
-    [[nodiscard]] basic_view<entity_type, get_t<Component, Other...>, exclude_t<Exclude...>> view(exclude_t<Exclude...> = {}) {
-        return {assure<std::remove_const_t<Component>>(), assure<std::remove_const_t<Other>>()..., assure<Exclude>()...};
+    template<typename... Components, typename... Exclude>
+    [[nodiscard]] auto view(exclude_t<Exclude...> = {}) {
+        if constexpr (sizeof...(Components) == 0) {
+            return view_type<exclude_t<Exclude...>, Components...> { entity_set, assure<Exclude>()... };
+        } else {
+            return view_type<exclude_t<Exclude...>, Components...> { assure<std::remove_const_t<Components>>()..., assure<Exclude>()... };
+        }
     }
 
     /**
@@ -1501,6 +1540,7 @@ private:
     dense_hash_map<id_type, basic_any<0u>, identity> vars{};
     std::vector<group_data> groups{};
     std::vector<entity_type> entities{};
+    basic_sparse_set<entity_type> entity_set{};
     entity_type free_list{tombstone};
 };
 

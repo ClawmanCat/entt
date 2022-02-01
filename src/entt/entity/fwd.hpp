@@ -16,7 +16,7 @@ class basic_storage;
 template<typename>
 class basic_registry;
 
-template<typename, typename, typename, typename = void>
+template<typename, typename, typename, typename, typename = void>
 class basic_view;
 
 template<typename>
@@ -99,8 +99,8 @@ using continuous_loader = basic_continuous_loader<entity>;
  * @tparam Get Types of components iterated by the view.
  * @tparam Exclude Types of components used to filter the view.
  */
-template<typename Get, typename Exclude = exclude_t<>>
-using view = basic_view<entity, Get, Exclude>;
+template<typename Get, typename Include = get_t<>, typename Exclude = exclude_t<>>
+using view = basic_view<entity, Get, Include, Exclude>;
 
 /*! @brief Alias declaration for the most common use case. */
 using runtime_view = basic_runtime_view<sparse_set>;

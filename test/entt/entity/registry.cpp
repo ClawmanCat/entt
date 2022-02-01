@@ -1994,3 +1994,31 @@ TEST(Registry, StorageProxyIterator) {
     ASSERT_EQ(cit, registry.storage().begin());
     ASSERT_NE(cit, std::as_const(registry).storage().end());
 }
+
+TEST(Registry, EntitySetValidAfterEntityDestroy) {
+    constexpr std::size_t insert_count = 10;
+    constexpr std::size_t erase_count  = 5;
+    constexpr std::size_t iterations   = 3;
+
+    std::vector<entt::entity> entities;
+    entt::registry registry;
+
+
+    for (std::size_t i = 0; i < iterations; ++i) {
+        for (std::size_t j = 0; j < insert_count; ++j) {
+            entities.push_back(registry.create());
+        }
+
+        for (std::size_t j = 0; j < erase_count; ++j) {
+            const auto entt = entities.back();
+            entities.pop_back();
+
+            registry.destroy(entt);
+        }
+
+        auto view = registry.view<>();
+        for (const auto entt : entities) {
+            ASSERT_TRUE(view.contains(entt));
+        }
+    }
+}

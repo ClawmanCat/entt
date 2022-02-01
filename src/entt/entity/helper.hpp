@@ -35,8 +35,18 @@ struct as_view {
      * @return A newly created view.
      */
     template<typename Exclude, typename... Component>
-    operator basic_view<entity_type, get_t<Component...>, Exclude>() const {
+    operator basic_view<entity_type, get_t<Component...>, get_t<>, Exclude>() const {
         return reg.template view<Component...>(Exclude{});
+    }
+
+    /**
+     * @brief Conversion function from a registry to an exclude-only view.
+     * @tparam Exclude Types of components used to filter the view.
+     * @return A newly created view.
+     */
+    template <typename Exclude>
+    operator basic_view<entity_type, get_t<>, get_t<basic_sparse_set<entity_type>>, Exclude>() const {
+        return reg.template view<>(Exclude{});
     }
 
 private:

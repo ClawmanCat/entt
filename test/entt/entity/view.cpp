@@ -388,9 +388,9 @@ TEST(SingleComponentView, DeductionGuide) {
     typename entt::storage_traits<entt::entity, int>::storage_type istorage;
     typename entt::storage_traits<entt::entity, stable_type>::storage_type sstorage;
 
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int>, entt::exclude_t<>>, decltype(entt::basic_view{istorage})>);
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const int>, entt::exclude_t<>>, decltype(entt::basic_view{std::as_const(istorage)})>);
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<stable_type>, entt::exclude_t<>>, decltype(entt::basic_view{sstorage})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{istorage})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const int>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{std::as_const(istorage)})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<stable_type>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{sstorage})>);
 }
 
 TEST(SingleComponentView, IterableViewAlgorithmCompatibility) {
@@ -1048,11 +1048,11 @@ TEST(MultiComponentView, DeductionGuide) {
     typename entt::storage_traits<entt::entity, double>::storage_type dstorage;
     typename entt::storage_traits<entt::entity, stable_type>::storage_type sstorage;
 
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, double>, entt::exclude_t<>>, decltype(entt::basic_view{istorage, dstorage})>);
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const int, double>, entt::exclude_t<>>, decltype(entt::basic_view{std::as_const(istorage), dstorage})>);
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, const double>, entt::exclude_t<>>, decltype(entt::basic_view{istorage, std::as_const(dstorage)})>);
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const int, const double>, entt::exclude_t<>>, decltype(entt::basic_view{std::as_const(istorage), std::as_const(dstorage)})>);
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, stable_type>, entt::exclude_t<>>, decltype(entt::basic_view{istorage, sstorage})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, double>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{istorage, dstorage})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const int, double>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{std::as_const(istorage), dstorage})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, const double>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{istorage, std::as_const(dstorage)})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const int, const double>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{std::as_const(istorage), std::as_const(dstorage)})>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, stable_type>, entt::get_t<>, entt::exclude_t<>>, decltype(entt::basic_view{istorage, sstorage})>);
 }
 
 TEST(MultiComponentView, IterableViewAlgorithmCompatibility) {
@@ -1215,10 +1215,16 @@ TEST(View, Pipe) {
     const auto view2 = registry.view<const char>(entt::exclude<float>);
     const auto view3 = registry.view<empty_type>();
     const auto view4 = registry.view<stable_type>();
+    const auto view5 = registry.view<>();
+    const auto view6 = registry.view<>(entt::exclude<double>);
 
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, const char>, entt::exclude_t<double, float>>, decltype(view1 | view2)>);
-    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const char, int>, entt::exclude_t<float, double>>, decltype(view2 | view1)>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<int, const char>, entt::get_t<>, entt::exclude_t<double, float>>, decltype(view1 | view2)>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const char, int>, entt::get_t<>, entt::exclude_t<float, double>>, decltype(view2 | view1)>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<>, entt::get_t<entt::sparse_set, entt::sparse_set>, entt::exclude_t<double>>, decltype(view5 | view6)>);
+    static_assert(std::is_same_v<entt::basic_view<entt::entity, entt::get_t<const char>, entt::get_t<entt::sparse_set>, entt::exclude_t<float, double>>, decltype(view2 | view6)>);
+
     static_assert(std::is_same_v<decltype((view3 | view2) | view1), decltype(view3 | (view2 | view1))>);
+    static_assert(std::is_same_v<decltype((view5 | view6) | view1), decltype(view5 | (view6 | view1))>);
 
     ASSERT_FALSE((view1 | view2).contains(entity));
     ASSERT_TRUE((view1 | view2).contains(other));
@@ -1231,6 +1237,12 @@ TEST(View, Pipe) {
 
     ASSERT_FALSE((view1 | view4 | view2).contains(entity));
     ASSERT_TRUE((view1 | view4 | view2).contains(other));
+
+    ASSERT_FALSE((view5 | view6).contains(entity));
+    ASSERT_TRUE((view5 | view6).contains(other));
+
+    ASSERT_FALSE((view5 | view6 | view2).contains(entity));
+    ASSERT_TRUE((view5 | view6 | view2).contains(other));
 }
 
 TEST(MultiComponentView, Storage) {
@@ -1257,4 +1269,39 @@ TEST(MultiComponentView, Storage) {
     ASSERT_EQ(view.size_hint(), 0u);
     ASSERT_TRUE(view.storage<1u>().contains(entity));
     ASSERT_FALSE((registry.all_of<int, char>(entity)));
+}
+
+TEST(MultiComponentView, ExcludeOnly) {
+    entt::registry registry;
+
+    auto entity = registry.create();
+    auto other  = registry.create();
+
+    registry.emplace<float>(entity, 0.0f);
+    registry.emplace<int>(other, 0);
+
+    auto view1 = registry.view<>(entt::exclude<float>);
+    auto view2 = registry.view<>(entt::exclude<float, int>);
+
+    ASSERT_FALSE(view1.contains(entity));
+    ASSERT_TRUE(view1.contains(other));
+    ASSERT_TRUE(view2.empty());
+
+    for (const auto entt : view1) {
+        ASSERT_EQ(entt, other);
+    }
+
+    view1.each([&] (const auto entt) { ASSERT_EQ(entt, other); });
+}
+
+TEST(MultiComponentView, IncludeEverything) {
+    entt::registry registry;
+
+    auto entity = registry.create();
+    auto other  = registry.create();
+
+    auto view = registry.view<>();
+
+    ASSERT_TRUE(view.contains(entity));
+    ASSERT_TRUE(view.contains(other));
 }

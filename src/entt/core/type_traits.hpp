@@ -673,6 +673,25 @@ public:
 template<typename Member>
 using member_class_t = typename member_class<Member>::type;
 
+/**
+ * @brief Contains a type 'type', which is either the common type of \p Types,
+ * or \p Default if no such common type exists.
+ * @tparam Default The default type to use if no common type exists.
+ * @tparam Types Types to evaluate the common type of.
+ */
+template <typename Default, typename... Types>
+struct common_type_or {
+private:
+    template <typename D, typename... T> constexpr static auto test(int) -> std::common_type_t<T...>;
+    template <typename D, typename... T> constexpr static auto test(...) -> D;
+public:
+    using type = decltype(test<Default, Types...>(0));
+};
+
+/** @copydoc common_type_or */
+template <typename Default, typename... Types>
+using common_type_or_t = typename common_type_or<Default, Types...>::type;
+
 } // namespace entt
 
 #endif
