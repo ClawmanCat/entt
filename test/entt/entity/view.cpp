@@ -453,12 +453,12 @@ TEST(SingleComponentView, Storage) {
     const auto view = registry.view<int>();
     const auto cview = registry.view<const char>();
 
-    static_assert(std::is_same_v<decltype(view.storage()), typename entt::storage_traits<entt::entity, int>::storage_type &>);
-    static_assert(std::is_same_v<decltype(view.storage<0u>()), typename entt::storage_traits<entt::entity, int>::storage_type &>);
-    static_assert(std::is_same_v<decltype(view.storage<int>()), typename entt::storage_traits<entt::entity, int>::storage_type &>);
-    static_assert(std::is_same_v<decltype(cview.storage()), const typename entt::storage_traits<entt::entity, char>::storage_type &>);
-    static_assert(std::is_same_v<decltype(cview.storage<0u>()), const typename entt::storage_traits<entt::entity, char>::storage_type &>);
-    static_assert(std::is_same_v<decltype(cview.storage<const char>()), const typename entt::storage_traits<entt::entity, char>::storage_type &>);
+    static_assert(std::is_same_v<decltype(view.storage()), typename entt::storage_traits<entt::entity, int>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(view.storage<0u>()), typename entt::storage_traits<entt::entity, int>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(view.storage<int>()), typename entt::storage_traits<entt::entity, int>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(cview.storage()), const typename entt::storage_traits<entt::entity, char>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(cview.storage<0u>()), const typename entt::storage_traits<entt::entity, char>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(cview.storage<const char>()), const typename entt::storage_traits<entt::entity, char>::storage_type_base &>);
 
     ASSERT_EQ(view.size(), 0u);
     ASSERT_EQ(cview.size(), 0u);
@@ -479,6 +479,11 @@ TEST(SingleComponentView, Storage) {
     ASSERT_FALSE(view.storage<0u>().contains(entity));
     ASSERT_TRUE(cview.storage<const char>().contains(entity));
     ASSERT_FALSE((registry.all_of<int, char>(entity)));
+}
+
+TEST(SingleComponentView, ViewStorageWithoutMixins) {
+    entt::basic_storage<entt::entity, int> s;
+    entt::basic_view<entt::entity, entt::get_t<int>, entt::get_t<>, entt::exclude_t<>> view { s };
 }
 
 TEST(MultiComponentView, Functionalities) {
@@ -1250,10 +1255,10 @@ TEST(MultiComponentView, Storage) {
     const auto entity = registry.create();
     const auto view = registry.view<int, const char>();
 
-    static_assert(std::is_same_v<decltype(view.storage<0u>()), typename entt::storage_traits<entt::entity, int>::storage_type &>);
-    static_assert(std::is_same_v<decltype(view.storage<int>()), typename entt::storage_traits<entt::entity, int>::storage_type &>);
-    static_assert(std::is_same_v<decltype(view.storage<1u>()), const typename entt::storage_traits<entt::entity, char>::storage_type &>);
-    static_assert(std::is_same_v<decltype(view.storage<const char>()), const typename entt::storage_traits<entt::entity, char>::storage_type &>);
+    static_assert(std::is_same_v<decltype(view.storage<0u>()), typename entt::storage_traits<entt::entity, int>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(view.storage<int>()), typename entt::storage_traits<entt::entity, int>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(view.storage<1u>()), const typename entt::storage_traits<entt::entity, char>::storage_type_base &>);
+    static_assert(std::is_same_v<decltype(view.storage<const char>()), const typename entt::storage_traits<entt::entity, char>::storage_type_base &>);
 
     ASSERT_EQ(view.size_hint(), 0u);
 
@@ -1304,4 +1309,11 @@ TEST(MultiComponentView, IncludeEverything) {
 
     ASSERT_TRUE(view.contains(entity));
     ASSERT_TRUE(view.contains(other));
+}
+
+TEST(MultiComponentView, ViewStorageWithoutMixins) {
+    entt::basic_storage<entt::entity, int> s1;
+    entt::basic_storage<entt::entity, float> s2;
+
+    entt::basic_view<entt::entity, entt::get_t<int, float>, entt::get_t<>, entt::exclude_t<>> view { s1, s2 };
 }

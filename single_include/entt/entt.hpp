@@ -17439,8 +17439,10 @@ private:
  */
 template<typename Entity, typename Type, typename = void>
 struct storage_traits {
+    /*! @brief Base class of storage_type, without any mixins applied to it. */
+    using storage_type_base = basic_storage<Entity, Type>;
     /*! @brief Resulting type after component-to-storage conversion. */
-    using storage_type = sigh_storage_mixin<basic_storage<Entity, Type>>;
+    using storage_type = sigh_storage_mixin<storage_type_base>;
 };
 
 } // namespace entt
@@ -22814,7 +22816,7 @@ class basic_view<Entity, get_t<Component...>, get_t<Include...>, exclude_t<Exclu
     friend class basic_view;
 
     template <typename Comp>
-    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Comp>>::storage_type, Comp>;
+    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Comp>>::storage_type_base, Comp>;
 
     template <typename Comp>
     using include_type = basic_sparse_set<Entity, common_type_or_t<std::allocator<Entity>, typename Include::allocator_type...>>;
@@ -23251,7 +23253,7 @@ class basic_view<Entity, get_t<Component>, get_t<>, exclude_t<>, std::void_t<std
     template<typename, typename, typename, typename, typename>
     friend class basic_view;
 
-    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Component>>::storage_type, Component>;
+    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Component>>::storage_type_base, Component>;
 
 public:
     /*! @brief Underlying entity identifier. */
@@ -31810,8 +31812,10 @@ private:
  */
 template<typename Entity, typename Type, typename = void>
 struct storage_traits {
+    /*! @brief Base class of storage_type, without any mixins applied to it. */
+    using storage_type_base = basic_storage<Entity, Type>;
     /*! @brief Resulting type after component-to-storage conversion. */
-    using storage_type = sigh_storage_mixin<basic_storage<Entity, Type>>;
+    using storage_type = sigh_storage_mixin<storage_type_base>;
 };
 
 } // namespace entt
@@ -32095,7 +32099,7 @@ class basic_view<Entity, get_t<Component...>, get_t<Include...>, exclude_t<Exclu
     friend class basic_view;
 
     template <typename Comp>
-    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Comp>>::storage_type, Comp>;
+    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Comp>>::storage_type_base, Comp>;
 
     template <typename Comp>
     using include_type = basic_sparse_set<Entity, common_type_or_t<std::allocator<Entity>, typename Include::allocator_type...>>;
@@ -32532,7 +32536,7 @@ class basic_view<Entity, get_t<Component>, get_t<>, exclude_t<>, std::void_t<std
     template<typename, typename, typename, typename, typename>
     friend class basic_view;
 
-    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Component>>::storage_type, Component>;
+    using storage_type = constness_as_t<typename storage_traits<Entity, std::remove_const_t<Component>>::storage_type_base, Component>;
 
 public:
     /*! @brief Underlying entity identifier. */

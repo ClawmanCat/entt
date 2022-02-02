@@ -1391,8 +1391,10 @@ private:
  */
 template<typename Entity, typename Type, typename = void>
 struct storage_traits {
+    /*! @brief Base class of storage_type, without any mixins applied to it. */
+    using storage_type_base = basic_storage<Entity, Type>;
     /*! @brief Resulting type after component-to-storage conversion. */
-    using storage_type = sigh_storage_mixin<basic_storage<Entity, Type>>;
+    using storage_type = sigh_storage_mixin<storage_type_base>;
 };
 
 } // namespace entt
