@@ -269,6 +269,10 @@ namespace internal {
 
     template <typename List> using pop_back_t = typename pop_back<List>::type;
 }
+/**
+ * Internal details not to be documented.
+ * @endcond
+ */
 
 /**
  * @brief Removes duplicates types from a type list. The order of the remaining types is preserved.
@@ -755,6 +759,10 @@ namespace internal {
         }
     };
 }
+/**
+ * Internal details not to be documented.
+ * @endcond
+ */
 
 /**
  * @brief Equivalent to std::apply, but for type lists instead of tuples.
