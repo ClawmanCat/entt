@@ -1317,3 +1317,20 @@ TEST(MultiComponentView, ViewStorageWithoutMixins) {
 
     entt::basic_view<entt::entity, entt::get_t<int, float>, entt::get_t<>, entt::exclude_t<>> view { s1, s2 };
 }
+
+TEST(MultiComponentView, ComponentDeduplication) {
+    entt::registry r;
+
+    auto v1 = r.template view<float, int, char>();
+    auto v2 = r.template view<float, int, bool>();
+    auto v3 = v1 | v2;
+
+
+    auto v4 = r.template view<float>();
+    auto v5 = r.template view<float>();
+    auto v6 = v4 | v5;
+
+    
+    static_assert(std::is_same_v<decltype(v3), entt::basic_view<entt::entity, entt::get_t<float, int, char, bool>, entt::get_t<>, entt::exclude_t<>>>);
+    static_assert(std::is_same_v<decltype(v6), entt::basic_view<entt::entity, entt::get_t<float>, entt::get_t<>, entt::exclude_t<>>>);
+}

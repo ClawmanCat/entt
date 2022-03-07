@@ -148,6 +148,27 @@ template<std::size_t Index, typename List>
 using type_list_element_t = typename type_list_element<Index, List>::type;
 
 /**
+ * @brief Given a type-list template and a type list, converts the type list to be of the given template.
+ * This can be used to convert for example between get_t and exclude_t.
+ * @tparam Target The Template to convert to.
+ * @tparam Source The type list to take the template arguments from.
+ */
+template <template <typename...> typename Target, typename Source> struct type_list_convert;
+
+/*! @copydoc type_list_convert */
+template <
+    template <typename...> typename Target,
+    template <typename...> typename Source,
+    typename... Args
+> struct type_list_convert<Target, Source<Args...>> {
+    using type = Target<Args...>;
+};
+
+/*! @copydoc type_list_convert */
+template <template <typename...> typename Target, typename Source> using type_list_convert_t
+    = typename type_list_convert<Target, Source>::type;
+
+/**
  * @brief Concatenates multiple type lists.
  * @tparam Type Types provided by the first type list.
  * @tparam Other Types provided by the second type list.
@@ -198,38 +219,6 @@ struct type_list_cat<type_list<Type...>> {
 template<typename... List>
 using type_list_cat_t = typename type_list_cat<List...>::type;
 
-/*! @brief Primary template isn't defined on purpose. */
-template<typename>
-struct type_list_unique;
-
-/**
- * @brief Removes duplicates types from a type list.
- * @tparam Type One of the types provided by the given type list.
- * @tparam Other The other types provided by the given type list.
- */
-template<typename Type, typename... Other>
-struct type_list_unique<type_list<Type, Other...>> {
-    /*! @brief A type list without duplicate types. */
-    using type = std::conditional_t<
-        std::disjunction_v<std::is_same<Type, Other>...>,
-        typename type_list_unique<type_list<Other...>>::type,
-        type_list_cat_t<type_list<Type>, typename type_list_unique<type_list<Other...>>::type>>;
-};
-
-/*! @brief Removes duplicates types from a type list. */
-template<>
-struct type_list_unique<type_list<>> {
-    /*! @brief A type list without duplicate types. */
-    using type = type_list<>;
-};
-
-/**
- * @brief Helper type.
- * @tparam Type A type list.
- */
-template<typename Type>
-using type_list_unique_t = typename type_list_unique<Type>::type;
-
 /**
  * @brief Provides the member constant `value` to true if a type list contains a
  * given type, false otherwise.
@@ -254,6 +243,66 @@ struct type_list_contains<type_list<Type...>, Other>: std::disjunction<std::is_s
  */
 template<typename List, typename Type>
 inline constexpr bool type_list_contains_v = type_list_contains<List, Type>::value;
+
+/*! @brief Primary template isn't defined on purpose. */
+template<typename>
+struct type_list_unique;
+
+/**
+ * @cond TURN_OFF_DOXYGEN
+ * Internal details not to be documented.
+ */
+namespace internal {
+    template <typename...> struct last;
+    template <typename T> struct last<T> { using type = T; };
+    template <typename T, typename... Ts> struct last<T, Ts...> { using type = typename last<Ts...>::type; };
+
+    template <typename... Ts> using last_t = typename last<Ts...>::type;
+
+
+    template <typename> struct pop_back;
+    template <typename T> struct pop_back<type_list<T>> { using type = type_list<>; };
+
+    template <typename T, typename... Rest> struct pop_back<type_list<T, Rest...>> {
+        using type = type_list_cat_t<type_list<T>, typename pop_back<type_list<Rest...>>::type>;
+    };
+
+    template <typename List> using pop_back_t = typename pop_back<List>::type;
+}
+
+/**
+ * @brief Removes duplicates types from a type list. The order of the remaining types is preserved.
+ * @tparam Type One of the types provided by the given type list.
+ * @tparam Other The other types provided by the given type list.
+ */
+template<typename... Types>
+struct type_list_unique<type_list<Types...>> {
+    using list_type = type_list<Types...>;
+
+    /*! @brief A type list without duplicate types. */
+    using type = std::conditional_t<
+        type_list_contains_v<internal::pop_back_t<list_type>, internal::last_t<Types...>>,
+        typename type_list_unique<internal::pop_back_t<list_type>>::type,
+        type_list_cat_t<
+            typename type_list_unique<internal::pop_back_t<list_type>>::type,
+            type_list<internal::last_t<Types...>>
+        >
+    >;
+};
+
+/*! @brief Removes duplicates types from a type list. */
+template<>
+struct type_list_unique<type_list<>> {
+    /*! @brief A type list without duplicate types. */
+    using type = type_list<>;
+};
+
+/**
+ * @brief Helper type.
+ * @tparam Type A type list.
+ */
+template<typename Type>
+using type_list_unique_t = typename type_list_unique<Type>::type;
 
 /*! @brief Primary template isn't defined on purpose. */
 template<typename...>
@@ -691,6 +740,32 @@ public:
 /** @copydoc common_type_or */
 template <typename Default, typename... Types>
 using common_type_or_t = typename common_type_or<Default, Types...>::type;
+
+/**
+ * @cond TURN_OFF_DOXYGEN
+ * Internal details not to be documented.
+ */
+namespace internal {
+    template<typename> struct apply_type_list_helper;
+
+    template<template<typename...> typename List, typename... Args>
+    struct apply_type_list_helper<List<Args...>> {
+        template<typename Pred> constexpr static decltype(auto) apply(Pred pred) {
+            return std::invoke(pred, type_identity<Args>{}...);
+        }
+    };
+}
+
+/**
+ * @brief Equivalent to std::apply, but for type lists instead of tuples.
+ * I.e. invokes pred as pred(type_identity<Ts>{}...) where Ts is the contents of the type list.
+ * @tparam List A type list to apply pred to.
+ * @param pred The predicate to apply to each element of the type list.
+ * @return The result of invoking pred.
+ */
+template <typename List, typename Pred> constexpr decltype(auto) apply_type_list(Pred pred) {
+    return internal::apply_type_list_helper<List>::template apply<Pred>(pred);
+}
 
 } // namespace entt
 

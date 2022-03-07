@@ -296,6 +296,8 @@ public:
     using iterator = internal::view_iterator<base_type, sizeof...(Component) + sizeof...(Include) - 1u, sizeof...(Exclude)>;
     /*! @brief Iterable view type. */
     using iterable = iterable_adaptor<internal::extended_view_iterator<iterator, storage_type<Component>...>>;
+    /*! @brief Indicates that this is not the single-component overload of the view type template. */
+    constexpr static bool is_single_component_overload = false;
 
     /*! @brief Default constructor to use to create empty, invalid views. */
     basic_view() ENTT_NOEXCEPT
@@ -584,11 +586,36 @@ public:
      */
     template<typename... Get, typename... Incl, typename... Excl>
     [[nodiscard]] auto operator|(const basic_view<Entity, get_t<Get...>, get_t<Incl...>, exclude_t<Excl...>> &other) const ENTT_NOEXCEPT {
-        using view_type = basic_view<Entity, get_t<Component..., Get...>, get_t<Include..., Incl...>, exclude_t<Exclude..., Excl...>>;
+        // get<T> would become impossible if T is both in this view and other, unless we deduplicate the view.
+        // This can only be done if both views refer to the same component pool.
+        ([&] (auto type_wrapper) {
+            using type = typename decltype(type_wrapper)::type;
+
+            if constexpr (type_list_contains_v<type_list<Get...>, type>) {
+                ENTT_ASSERT(
+                    &(other.template storage<type>()) == &(storage<type>()),
+                    "When combining two views that contain the same component, both pools for said component should be the same."
+                );
+            }
+        } (type_identity<Component>{}), ...);
+
+
+        auto get_pool_for_type = [&] (auto type_wrapper) {
+            using type = typename decltype(type_wrapper)::type;
+
+            if constexpr (type_list_contains_v<type_list<Component...>, type>) {
+                return &storage<type>();
+            } else {
+                return &other.template storage<type>();
+            }
+        };
+
+        using new_pools = type_list_convert_t<get_t, type_list_unique_t<type_list<Component..., Get...>>>;
+        using view_type = basic_view<Entity, new_pools, get_t<Include..., Incl...>, exclude_t<Exclude..., Excl...>>;
+
 
         return std::make_from_tuple<view_type>(std::tuple_cat(
-            std::apply([](auto *...curr) { return std::forward_as_tuple(*curr...); }, pools),
-            std::apply([](auto *...curr) { return std::forward_as_tuple(*curr...); }, other.pools),
+            apply_type_list<new_pools>([&] (auto... type_wrapper) { return std::forward_as_tuple(*get_pool_for_type(type_wrapper)...); }),
             std::apply([](auto *...curr) { return std::forward_as_tuple(*curr...); }, include),
             std::apply([](auto *...curr) { return std::forward_as_tuple(*curr...); }, other.include),
             std::apply([](const auto *...curr) { return std::forward_as_tuple(static_cast<const storage_type<Exclude> &>(*curr)...); }, filter),
@@ -644,6 +671,8 @@ public:
     using reverse_iterator = typename base_type::reverse_iterator;
     /*! @brief Iterable view type. */
     using iterable = decltype(std::declval<storage_type>().each());
+    /*! @brief Indicates that this is the single-component overload of the view type template. */
+    constexpr static bool is_single_component_overload = true;
 
     /*! @brief Default constructor to use to create empty, invalid views. */
     basic_view() ENTT_NOEXCEPT
@@ -903,13 +932,44 @@ public:
      */
     template<typename... Get, typename... Incl, typename... Excl>
     [[nodiscard]] auto operator|(const basic_view<Entity, get_t<Get...>, get_t<Incl...>, exclude_t<Excl...>> &other) const ENTT_NOEXCEPT {
-        using view_type = basic_view<Entity, get_t<Component, Get...>, get_t<Incl...>, exclude_t<Excl...>>;
+        // get<T> would become impossible if T is both in this view and other, unless we deduplicate the view.
+        // This can only be done if both views refer to the same component pool.
+        ([&] (auto type_wrapper) {
+            using type = typename decltype(type_wrapper)::type;
+
+            if constexpr (std::is_same_v<Component, type>) {
+                ENTT_ASSERT(
+                    &(other.template storage<type>()) == &(storage<type>()),
+                    "When combining two views that contain the same component, both pools for said component should be the same."
+                );
+            }
+        } (type_identity<Get>{}), ...);
+
+
+        auto get_pool_for_type = [&] (auto type_wrapper) {
+            using type = typename decltype(type_wrapper)::type;
+
+            if constexpr (std::is_same_v<Component, type>) {
+                return &storage<type>();
+            } else {
+                return &other.template storage<type>();
+            }
+        };
+
+        using new_pools = type_list_convert_t<get_t, type_list_unique_t<type_list<Component, Get...>>>;
+        using view_type = basic_view<Entity, new_pools, get_t<Incl...>, exclude_t<Excl...>>;
+
 
         return std::make_from_tuple<view_type>(std::tuple_cat(
-            std::forward_as_tuple(*std::get<0>(pools)),
-            std::apply([](auto *...curr) { return std::forward_as_tuple(*curr...); }, other.pools),
+            apply_type_list<new_pools>([&] (auto... type_wrapper) { return std::forward_as_tuple(*get_pool_for_type(type_wrapper)...); }),
             std::apply([](auto *...curr) { return std::forward_as_tuple(*curr...); }, other.include),
-            std::apply([](const auto *...curr) { return std::forward_as_tuple(static_cast<const typename view_type::template storage_type<Excl> &>(*curr)...); }, other.filter)));
+            std::apply([](const auto *...curr) {
+                if constexpr (view_type::is_single_component_overload) {
+                    return std::tuple {};
+                } else {
+                    return std::forward_as_tuple(static_cast<const typename view_type::template storage_type<Excl> &>(*curr)...);
+                }
+            }, other.filter)));
     }
 
 private:
